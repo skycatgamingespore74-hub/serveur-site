@@ -10,22 +10,21 @@ console.log('==============================');
 
 const app = express();
 
-/*
- Railway injecte automatiquement PORT
- En local → 3000
-*/
-const PORT = process.env.PORT || 3000;
+// Railway fournit automatiquement PORT
+const PORT = process.env.PORT;
 
-/*
- Railway fournit aussi une URL publique
- (utile pour les logs et le front)
-*/
-const PUBLIC_URL =
-    process.env.RAILWAY_PUBLIC_DOMAIN
-        ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-        : `http://localhost:${PORT}`;
+// Railway fournit aussi une URL publique
+const PUBLIC_URL = process.env.RAILWAY_PUBLIC_DOMAIN
+    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+    : null;
 
-console.log('🌍 URL serveur détectée :', PUBLIC_URL);
+if (!PUBLIC_URL) {
+    console.error('❌ ERREUR : L\'URL publique Railway est introuvable !');
+    console.error('⚠️ Assurez-vous que RAILWAY_PUBLIC_DOMAIN est défini dans les variables Railway.');
+    process.exit(1);
+}
+
+console.log('🌍 URL serveur Railway détectée :', PUBLIC_URL);
 
 const USERS_FILE = path.join(__dirname, 'users.json');
 
@@ -166,9 +165,9 @@ app.post('/buy-credits', (req, res) => {
 // ================== LANCEMENT ==================
 app.listen(PORT, () => {
     console.log('==============================');
-    console.log('✅ SERVEUR LANCÉ');
+    console.log('✅ SERVEUR LANCÉ SUR RAILWAY');
     console.log('🔌 Port :', PORT);
-    console.log('🌍 URL PUBLIQUE (pour le front) :');
+    console.log('🌍 URL PUBLIQUE À METTRE DANS LE FRONT :');
     console.log('➡️ ', PUBLIC_URL);
     console.log('➡️ ', `${PUBLIC_URL}/status`);
     console.log('==============================');
