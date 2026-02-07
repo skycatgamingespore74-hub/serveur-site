@@ -90,6 +90,12 @@ app.get('/status', (req, res) => {
     });
 });
 
+// ______ conect
+app.get('/', (req, res) => {
+    console.log('🏠 Accès racine /');
+    res.json({ message: 'Serveur actif', url: PUBLIC_URL, time: new Date().toISOString() });
+});
+
 // ---- INSCRIPTION
 app.post('/register', (req, res) => {
     const { email, password, telephone } = req.body;
