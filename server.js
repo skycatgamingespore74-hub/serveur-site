@@ -26,18 +26,18 @@ const USERS_FILE = path.join(__dirname, 'users.json');
 
 // ================== MIDDLEWARE ==================
 app.use(cors({
-    origin: '*', // ou ton front précis
+    origin: '*', // tu peux mettre ton front exact ici
     credentials: true
 }));
 app.use(bodyParser.json());
 
 // ===== SESSION =====
 app.use(session({
-    secret: 'skyfacto738697', // change ça pour du vrai secret
+    secret: 'tonSecretUltraSecreto', // change par un vrai secret
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: false, // mettre true si HTTPS
+        secure: false, // true si HTTPS
         httpOnly: true,
         maxAge: 24 * 60 * 60 * 1000 // 1 jour
     }
@@ -81,6 +81,10 @@ app.post('/register', (req, res) => {
     const newUser = { email, password, telephone: telephone || '', page: 'connexion', credits: 0 };
     users.push(newUser);
     saveUsers(users);
+
+    // Créer la session directement
+    req.session.user = { email: newUser.email };
+
     res.json({ success: true, user: newUser });
 });
 
@@ -97,11 +101,11 @@ app.post('/login', (req, res) => {
 });
 
 // ---- CHECK SESSION
-app.get('/session', (req, res) => {
+app.get('/me', (req, res) => {
     if (req.session.user) {
-        res.json({ connected: true, user: req.session.user });
+        res.json({ success: true, user: req.session.user });
     } else {
-        res.json({ connected: false });
+        res.json({ success: false });
     }
 });
 
@@ -109,6 +113,7 @@ app.get('/session', (req, res) => {
 app.post('/logout', (req, res) => {
     req.session.destroy(err => {
         if (err) return res.status(500).json({ error: 'Erreur lors de la déconnexion' });
+        res.clearCookie('connect.sid'); // supprimer le cookie
         res.json({ success: true });
     });
 });
