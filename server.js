@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const session = require('express-session');
 
 console.log('==============================');
 console.log('🚀 DÉMARRAGE DU SERVEUR');
@@ -25,21 +26,26 @@ if (!PUBLIC_URL) {
 
 console.log('🌍 URL serveur Railway détectée :', PUBLIC_URL);
 
-// Afficher toutes les variables d'environnement utiles
-console.log('📋 Variables d\'environnement disponibles :');
-console.log({
-    PORT,
-    RAILWAY_PUBLIC_DOMAIN: process.env.RAILWAY_PUBLIC_DOMAIN,
-    RAILWAY_PROJECT_NAME: process.env.RAILWAY_PROJECT_NAME,
-    RAILWAY_ENVIRONMENT_NAME: process.env.RAILWAY_ENVIRONMENT_NAME,
-    RAILWAY_SERVICE_NAME: process.env.RAILWAY_SERVICE_NAME
-});
-
 const USERS_FILE = path.join(__dirname, 'users.json');
 
 // ================== MIDDLEWARE ==================
-app.use(cors());
+app.use(cors({
+    origin: PUBLIC_URL, // seulement ton front
+    credentials: true   // pour permettre les cookies
+}));
 app.use(bodyParser.json());
+
+// Session avec cookies
+app.use(session({
+    secret: 'monSecretUltraTopSecret', // change ça en production
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: false, // mettre true si HTTPS
+        httpOnly: true,
+        maxAge: 1000 * 60 * 60 * 24 // 1 jour
+    }
+}));
 
 // Logger global avec temps de requête
 app.use((req, res, next) => {
@@ -90,12 +96,6 @@ app.get('/status', (req, res) => {
     });
 });
 
-// ______ conect
-app.get('/', (req, res) => {
-    console.log('🏠 Accès racine /');
-    res.json({ message: 'Serveur actif', url: PUBLIC_URL, time: new Date().toISOString() });
-});
-
 // ---- INSCRIPTION
 app.post('/register', (req, res) => {
     const { email, password, telephone } = req.body;
@@ -134,7 +134,10 @@ app.post('/login', (req, res) => {
             return res.status(400).json({ error: 'Email ou mot de passe incorrect' });
         }
 
-        console.log('✅ Connexion réussie:', email);
+        // Créer session
+        req.session.user = { email: user.email };
+        console.log('✅ Connexion réussie et session créée pour:', email);
+
         res.json({ success: true, user });
     } catch (err) {
         console.error('❌ Erreur connexion', err);
@@ -142,85 +145,29 @@ app.post('/login', (req, res) => {
     }
 });
 
-// ---- UPDATE PROFIL
-app.post('/update', (req, res) => {
-    const { email, newEmail, newPassword, newTelephone, page } = req.body;
-    console.log('✏️ Mise à jour profil', email);
-
-    try {
-        const users = getUsers();
-        const user = users.find(u => u.email === email);
-
-        if (!user) {
-            console.log('❌ Utilisateur introuvable');
-            return res.status(400).json({ error: 'Utilisateur non trouvé' });
-        }
-
-        if (newEmail) user.email = newEmail;
-        if (newPassword) user.password = newPassword;
-        if (newTelephone) user.telephone = newTelephone;
-        if (page) user.page = page;
-
-        saveUsers(users);
-        console.log('✅ Profil mis à jour:', user.email);
-        res.json({ success: true, user });
-    } catch (err) {
-        console.error('❌ Erreur update profil', err);
-        res.status(500).json({ error: 'Erreur serveur lors de la mise à jour du profil' });
+// ---- GET UTILISATEUR CONNECTÉ
+app.get('/me', (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).json({ error: 'Non connecté' });
     }
+
+    const users = getUsers();
+    const user = users.find(u => u.email === req.session.user.email);
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+
+    res.json({ success: true, user });
 });
 
-// ---- GET USER
-app.get('/user/:email', (req, res) => {
-    const { email } = req.params;
-    console.log('👤 Récupération utilisateur', email);
-
-    try {
-        const users = getUsers();
-        const user = users.find(u => u.email === email);
-
-        if (!user) {
-            console.log('❌ Utilisateur introuvable');
-            return res.status(404).json({ error: 'Utilisateur non trouvé' });
+// ---- LOGOUT
+app.post('/logout', (req, res) => {
+    req.session.destroy(err => {
+        if (err) {
+            console.error('❌ Erreur déconnexion', err);
+            return res.status(500).json({ error: 'Erreur serveur lors de la déconnexion' });
         }
-
-        res.json(user);
-    } catch (err) {
-        console.error('❌ Erreur récupération utilisateur', err);
-        res.status(500).json({ error: 'Erreur serveur lors de la récupération de l\'utilisateur' });
-    }
-});
-
-// ---- ACHAT CRÉDITS
-app.post('/buy-credits', (req, res) => {
-    const { email, amount } = req.body;
-    console.log('💰 Achat crédits', email, amount);
-
-    try {
-        const users = getUsers();
-        const user = users.find(u => u.email === email);
-
-        if (!user) {
-            console.log('❌ Utilisateur introuvable');
-            return res.status(404).json({ error: 'Utilisateur non trouvé' });
-        }
-
-        user.credits += amount;
-        saveUsers(users);
-        console.log(`✅ ${amount} crédits ajoutés à ${email}`);
-        res.json({ success: true, credits: user.credits });
-    } catch (err) {
-        console.error('❌ Erreur achat crédits', err);
-        res.status(500).json({ error: 'Erreur serveur lors de l\'achat de crédits' });
-    }
-});
-
-// ---- Gestion des erreurs non capturées
-process.on('uncaughtException', err => {
-    console.error('❌ Exception non capturée :', err);
-});
-process.on('unhandledRejection', err => {
-    console.error('❌ Promesse rejetée non gérée :', err);
+        res.clearCookie('connect.sid'); // nom du cookie par défaut
+        res.json({ success: true });
+    });
 });
 
 // ================== LANCEMENT ==================
