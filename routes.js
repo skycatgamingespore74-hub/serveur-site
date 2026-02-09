@@ -135,22 +135,6 @@ router.post('/credits/:email', (req, res) => {
     console.log('✅ Crédits ajoutés:', users[userIndex]);
     res.json({ success: true, user: users[userIndex] });
 });
-// ================== UPDATE CREDITS ==================
-app.post('/update-credits', (req, res) => {
-    const { email, token, creditsToAdd } = req.body;
-
-    // Vérification du token
-    if (!tokens[token] || tokens[token] !== email) {
-        console.log('❌ Token invalide pour', email);
-        return res.status(401).json({ success: false, error: 'Session invalide' });
-    }
-
-    const users = getUsers();
-    const user = users.find(u => u.email === email);
-    if (!user) {
-        console.log('❌ Utilisateur non trouvé:', email);
-        return res.status(404).json({ success: false, error: 'Utilisateur non trouvé' });
-    }
 
     // Mise à jour des crédits
     user.credits = (user.credits || 0) + creditsToAdd;
