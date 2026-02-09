@@ -33,7 +33,7 @@ app.use(bodyParser.json());
 
 // ===== SESSION =====
 app.use(session({
-    secret: 'tonSecretUltraSecreto', // change ça pour du vrai secret
+    secret: 'skyfacto738697', // change ça pour du vrai secret
     resave: false,
     saveUninitialized: false,
     cookie: {
