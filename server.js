@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const crypto = require('crypto');
 
 console.log('==============================');
 console.log('🚀 DÉMARRAGE DU SERVEUR');
@@ -18,70 +19,51 @@ const PUBLIC_URL = process.env.RAILWAY_PUBLIC_DOMAIN
     : null;
 
 if (!PUBLIC_URL) {
-    console.error('❌ ERREUR : L\'URL publique Railway est introuvable !');
-    console.error('⚠️ Assurez-vous que RAILWAY_PUBLIC_DOMAIN est défini dans les variables Railway.');
+    console.error('❌ ERREUR : URL publique Railway introuvable');
     process.exit(1);
 }
 
 console.log('🌍 URL serveur Railway détectée :', PUBLIC_URL);
 
-// Afficher toutes les variables d'environnement utiles
-console.log('📋 Variables d\'environnement disponibles :');
-console.log({
-    PORT,
-    RAILWAY_PUBLIC_DOMAIN: process.env.RAILWAY_PUBLIC_DOMAIN,
-    RAILWAY_PROJECT_NAME: process.env.RAILWAY_PROJECT_NAME,
-    RAILWAY_ENVIRONMENT_NAME: process.env.RAILWAY_ENVIRONMENT_NAME,
-    RAILWAY_SERVICE_NAME: process.env.RAILWAY_SERVICE_NAME
-});
-
 const USERS_FILE = path.join(__dirname, 'users.json');
+
+// ================== SESSIONS TOKEN ==================
+const sessions = {}; // token -> { email, createdAt }
 
 // ================== MIDDLEWARE ==================
 app.use(cors());
 app.use(bodyParser.json());
 
-// Logger global avec temps de requête
+// Logger global
 app.use((req, res, next) => {
     const start = Date.now();
     res.on('finish', () => {
-        const duration = Date.now() - start;
-        console.log(`➡️  ${req.method} ${req.url} | Status: ${res.statusCode} | ${duration}ms`);
+        console.log(`➡️ ${req.method} ${req.url} | ${res.statusCode} | ${Date.now() - start}ms`);
     });
     next();
 });
 
 // ================== USERS FILE ==================
 if (!fs.existsSync(USERS_FILE)) {
-    console.log('📄 users.json introuvable → création');
     fs.writeFileSync(USERS_FILE, JSON.stringify([]));
-} else {
-    console.log('📄 users.json trouvé');
 }
 
 function getUsers() {
     try {
         return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-    } catch (err) {
-        console.error('❌ Erreur lecture users.json', err);
+    } catch {
         return [];
     }
 }
 
 function saveUsers(users) {
-    try {
-        fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-        console.log('💾 users.json sauvegardé');
-    } catch (err) {
-        console.error('❌ Erreur sauvegarde users.json', err);
-    }
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
 }
 
 // ================== ROUTES ==================
 
-// ---- STATUS SERVEUR
+// ---- STATUS SERVEUR (NE TOUCHE PAS → BARRE OK)
 app.get('/status', (req, res) => {
-    console.log('✅ Vérification du statut serveur');
     res.json({
         connected: true,
         message: 'Serveur actif',
@@ -90,137 +72,123 @@ app.get('/status', (req, res) => {
     });
 });
 
-// ______ conect
+// ---- RACINE
 app.get('/', (req, res) => {
-    console.log('🏠 Accès racine /');
-    res.json({ message: 'Serveur actif', url: PUBLIC_URL, time: new Date().toISOString() });
+    res.json({ message: 'Serveur actif' });
 });
 
 // ---- INSCRIPTION
 app.post('/register', (req, res) => {
     const { email, password, telephone } = req.body;
-    console.log('📝 Tentative inscription', email);
+    const users = getUsers();
 
-    try {
-        const users = getUsers();
-        if (users.find(u => u.email === email)) {
-            console.log('❌ Email déjà utilisé');
-            return res.status(400).json({ error: 'Email déjà utilisé' });
-        }
-
-        const newUser = { email, password, telephone: telephone || '', page: 'connexion', credits: 0 };
-        users.push(newUser);
-        saveUsers(users);
-
-        console.log('✅ Utilisateur créé:', email);
-        res.json({ success: true, user: newUser });
-    } catch (err) {
-        console.error('❌ Erreur inscription', err);
-        res.status(500).json({ error: 'Erreur serveur lors de l\'inscription' });
+    if (users.find(u => u.email === email)) {
+        return res.status(400).json({ error: 'Email déjà utilisé' });
     }
+
+    const newUser = {
+        email,
+        password,
+        telephone: telephone || '',
+        credits: 0
+    };
+
+    users.push(newUser);
+    saveUsers(users);
+
+    res.json({ success: true });
 });
 
-// ---- CONNEXION
+// ---- CONNEXION (TOKEN)
 app.post('/login', (req, res) => {
     const { email, password } = req.body;
-    console.log('🔐 Tentative connexion', email);
+    const users = getUsers();
 
-    try {
-        const users = getUsers();
-        const user = users.find(u => u.email === email && u.password === password);
-
-        if (!user) {
-            console.log('❌ Mauvais identifiants');
-            return res.status(400).json({ error: 'Email ou mot de passe incorrect' });
-        }
-
-        console.log('✅ Connexion réussie:', email);
-        res.json({ success: true, user });
-    } catch (err) {
-        console.error('❌ Erreur connexion', err);
-        res.status(500).json({ error: 'Erreur serveur lors de la connexion' });
+    const user = users.find(u => u.email === email && u.password === password);
+    if (!user) {
+        return res.status(400).json({ error: 'Email ou mot de passe incorrect' });
     }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    sessions[token] = {
+        email: user.email,
+        createdAt: Date.now()
+    };
+
+    res.json({
+        success: true,
+        token,
+        user: {
+            email: user.email,
+            credits: user.credits
+        }
+    });
 });
 
-// ---- UPDATE PROFIL
-app.post('/update', (req, res) => {
-    const { email, newEmail, newPassword, newTelephone, page } = req.body;
-    console.log('✏️ Mise à jour profil', email);
+// ---- CHECK CONNEXION
+app.get('/me', (req, res) => {
+    const token = req.headers.authorization;
 
-    try {
-        const users = getUsers();
-        const user = users.find(u => u.email === email);
-
-        if (!user) {
-            console.log('❌ Utilisateur introuvable');
-            return res.status(400).json({ error: 'Utilisateur non trouvé' });
-        }
-
-        if (newEmail) user.email = newEmail;
-        if (newPassword) user.password = newPassword;
-        if (newTelephone) user.telephone = newTelephone;
-        if (page) user.page = page;
-
-        saveUsers(users);
-        console.log('✅ Profil mis à jour:', user.email);
-        res.json({ success: true, user });
-    } catch (err) {
-        console.error('❌ Erreur update profil', err);
-        res.status(500).json({ error: 'Erreur serveur lors de la mise à jour du profil' });
+    if (!token || !sessions[token]) {
+        return res.json({ connected: false });
     }
+
+    res.json({
+        connected: true,
+        user: sessions[token]
+    });
+});
+
+// ---- LOGOUT
+app.post('/logout', (req, res) => {
+    const token = req.headers.authorization;
+    if (token) delete sessions[token];
+    res.json({ success: true });
 });
 
 // ---- GET USER
 app.get('/user/:email', (req, res) => {
-    const { email } = req.params;
-    console.log('👤 Récupération utilisateur', email);
+    const users = getUsers();
+    const user = users.find(u => u.email === req.params.email);
 
-    try {
-        const users = getUsers();
-        const user = users.find(u => u.email === email);
-
-        if (!user) {
-            console.log('❌ Utilisateur introuvable');
-            return res.status(404).json({ error: 'Utilisateur non trouvé' });
-        }
-
-        res.json(user);
-    } catch (err) {
-        console.error('❌ Erreur récupération utilisateur', err);
-        res.status(500).json({ error: 'Erreur serveur lors de la récupération de l\'utilisateur' });
+    if (!user) {
+        return res.status(404).json({ error: 'Utilisateur non trouvé' });
     }
+
+    res.json(user);
+});
+
+// ---- UPDATE PROFIL
+app.post('/update', (req, res) => {
+    const { email, newEmail, newPassword, newTelephone } = req.body;
+    const users = getUsers();
+    const user = users.find(u => u.email === email);
+
+    if (!user) {
+        return res.status(400).json({ error: 'Utilisateur non trouvé' });
+    }
+
+    if (newEmail) user.email = newEmail;
+    if (newPassword) user.password = newPassword;
+    if (newTelephone) user.telephone = newTelephone;
+
+    saveUsers(users);
+    res.json({ success: true });
 });
 
 // ---- ACHAT CRÉDITS
 app.post('/buy-credits', (req, res) => {
     const { email, amount } = req.body;
-    console.log('💰 Achat crédits', email, amount);
+    const users = getUsers();
+    const user = users.find(u => u.email === email);
 
-    try {
-        const users = getUsers();
-        const user = users.find(u => u.email === email);
-
-        if (!user) {
-            console.log('❌ Utilisateur introuvable');
-            return res.status(404).json({ error: 'Utilisateur non trouvé' });
-        }
-
-        user.credits += amount;
-        saveUsers(users);
-        console.log(`✅ ${amount} crédits ajoutés à ${email}`);
-        res.json({ success: true, credits: user.credits });
-    } catch (err) {
-        console.error('❌ Erreur achat crédits', err);
-        res.status(500).json({ error: 'Erreur serveur lors de l\'achat de crédits' });
+    if (!user) {
+        return res.status(404).json({ error: 'Utilisateur non trouvé' });
     }
-});
 
-// ---- Gestion des erreurs non capturées
-process.on('uncaughtException', err => {
-    console.error('❌ Exception non capturée :', err);
-});
-process.on('unhandledRejection', err => {
-    console.error('❌ Promesse rejetée non gérée :', err);
+    user.credits += amount;
+    saveUsers(users);
+    res.json({ success: true, credits: user.credits });
 });
 
 // ================== LANCEMENT ==================
@@ -228,8 +196,6 @@ app.listen(PORT, () => {
     console.log('==============================');
     console.log('✅ SERVEUR LANCÉ SUR RAILWAY');
     console.log('🔌 Port :', PORT);
-    console.log('🌍 URL PUBLIQUE À METTRE DANS LE FRONT :');
-    console.log('➡️ ', PUBLIC_URL);
-    console.log('➡️ ', `${PUBLIC_URL}/status`);
+    console.log('🌍 URL :', PUBLIC_URL);
     console.log('==============================');
 });
