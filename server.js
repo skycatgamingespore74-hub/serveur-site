@@ -10,13 +10,17 @@ console.log('🚀 DÉMARRAGE DU SERVEUR');
 console.log('==============================');
 
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 8080;
+
+// ⚠️ Railway
+app.set('trust proxy', 1);
+
 const PUBLIC_URL = process.env.RAILWAY_PUBLIC_DOMAIN
     ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
     : null;
 
 if (!PUBLIC_URL) {
-    console.error('❌ ERREUR : L\'URL publique Railway est introuvable !');
+    console.error('❌ ERREUR : URL publique Railway introuvable');
     process.exit(1);
 }
 
@@ -26,140 +30,103 @@ const USERS_FILE = path.join(__dirname, 'users.json');
 
 // ================== MIDDLEWARE ==================
 app.use(cors({
-    origin: '*', // tu peux mettre ton front exact ici
+    origin: [
+        'http://localhost:5500', // dev local
+        'http://127.0.0.1:5500',
+        // 👉 AJOUTE ICI L’URL EXACTE DE TON FRONT
+    ],
     credentials: true
 }));
+
 app.use(bodyParser.json());
 
-// ===== SESSION =====
+// ================== SESSION ==================
 app.use(session({
-    secret: 'tonSecretUltraSecreto', // change par un vrai secret
+    name: 'sessionId',
+    secret: 'CHANGE-MOI-CE-SECRET',
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: false, // true si HTTPS
         httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000 // 1 jour
+        secure: true,       // 🔥 OBLIGATOIRE SUR RAILWAY
+        sameSite: 'none',   // 🔥 OBLIGATOIRE cross-site
+        maxAge: 24 * 60 * 60 * 1000
     }
 }));
 
-// Logger global
+// Logger
 app.use((req, res, next) => {
     const start = Date.now();
     res.on('finish', () => {
-        const duration = Date.now() - start;
-        console.log(`➡️  ${req.method} ${req.url} | Status: ${res.statusCode} | ${duration}ms`);
+        console.log(`➡️ ${req.method} ${req.url} | ${res.statusCode} | ${Date.now() - start}ms`);
     });
     next();
 });
 
-// ================== USERS FILE ==================
+// ================== USERS ==================
 if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, JSON.stringify([]));
 
-function getUsers() {
-    try { return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')); }
-    catch (err) { console.error('❌ Erreur lecture users.json', err); return []; }
-}
-
-function saveUsers(users) {
-    try { fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2)); }
-    catch (err) { console.error('❌ Erreur sauvegarde users.json', err); }
-}
+const getUsers = () => JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+const saveUsers = users => fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
 
 // ================== ROUTES ==================
 
-// ---- STATUS SERVEUR
 app.get('/status', (req, res) => {
-    res.json({ connected: true, message: 'Serveur actif', url: PUBLIC_URL, time: new Date().toISOString() });
+    res.json({ connected: true, url: PUBLIC_URL });
 });
 
-// ---- INSCRIPTION
 app.post('/register', (req, res) => {
     const { email, password, telephone } = req.body;
     const users = getUsers();
-    if (users.find(u => u.email === email)) return res.status(400).json({ error: 'Email déjà utilisé' });
-    const newUser = { email, password, telephone: telephone || '', page: 'connexion', credits: 0 };
+
+    if (users.find(u => u.email === email)) {
+        return res.status(400).json({ error: 'Email déjà utilisé' });
+    }
+
+    const newUser = { email, password, telephone: telephone || '', credits: 0 };
     users.push(newUser);
     saveUsers(users);
 
-    // Créer la session directement
-    req.session.user = { email: newUser.email };
+    req.session.user = { email };
 
-    res.json({ success: true, user: newUser });
+    res.json({ success: true });
 });
 
-// ---- CONNEXION AVEC SESSION
 app.post('/login', (req, res) => {
     const { email, password } = req.body;
     const users = getUsers();
+
     const user = users.find(u => u.email === email && u.password === password);
-    if (!user) return res.status(400).json({ error: 'Email ou mot de passe incorrect' });
-
-    // Stocker l'utilisateur dans la session
-    req.session.user = { email: user.email };
-    res.json({ success: true, user });
-});
-
-// ---- CHECK SESSION
-app.get('/me', (req, res) => {
-    if (req.session.user) {
-        res.json({ success: true, user: req.session.user });
-    } else {
-        res.json({ success: false });
+    if (!user) {
+        return res.status(400).json({ error: 'Identifiants invalides' });
     }
+
+    req.session.user = { email };
+    res.json({ success: true });
 });
 
-// ---- LOGOUT
+app.get('/me', (req, res) => {
+    if (!req.session.user) {
+        return res.json({ success: false });
+    }
+    res.json({ success: true, user: req.session.user });
+});
+
 app.post('/logout', (req, res) => {
-    req.session.destroy(err => {
-        if (err) return res.status(500).json({ error: 'Erreur lors de la déconnexion' });
-        res.clearCookie('connect.sid'); // supprimer le cookie
+    req.session.destroy(() => {
+        res.clearCookie('sessionId', {
+            secure: true,
+            sameSite: 'none'
+        });
         res.json({ success: true });
     });
 });
 
-// ---- GET USER
-app.get('/user/:email', (req, res) => {
-    const { email } = req.params;
-    const users = getUsers();
-    const user = users.find(u => u.email === email);
-    if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    res.json(user);
-});
-
-// ---- UPDATE PROFIL
-app.post('/update', (req, res) => {
-    const { email, newEmail, newPassword, newTelephone, page } = req.body;
-    const users = getUsers();
-    const user = users.find(u => u.email === email);
-    if (!user) return res.status(400).json({ error: 'Utilisateur non trouvé' });
-
-    if (newEmail) user.email = newEmail;
-    if (newPassword) user.password = newPassword;
-    if (newTelephone) user.telephone = newTelephone;
-    if (page) user.page = page;
-
-    saveUsers(users);
-    res.json({ success: true, user });
-});
-
-// ---- ACHAT CRÉDITS
-app.post('/buy-credits', (req, res) => {
-    const { email, amount } = req.body;
-    const users = getUsers();
-    const user = users.find(u => u.email === email);
-    if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-
-    user.credits += amount;
-    saveUsers(users);
-    res.json({ success: true, credits: user.credits });
-});
-
-// ================== LANCEMENT ==================
+// ================== START ==================
 app.listen(PORT, () => {
     console.log('==============================');
-    console.log('✅ SERVEUR LANCÉ SUR RAILWAY');
+    console.log('✅ SERVEUR LANCÉ');
     console.log('🔌 Port :', PORT);
-    console.log('🌍 URL PUBLIQUE :', PUBLIC_URL);
+    console.log('🌍 URL :', PUBLIC_URL);
     console.log('==============================');
 });
