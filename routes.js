@@ -136,14 +136,6 @@ router.post('/credits/:email', (req, res) => {
     res.json({ success: true, user: users[userIndex] });
 });
 
-    // Mise à jour des crédits
-    user.credits = (user.credits || 0) + creditsToAdd;
-    saveUsers(users);
-
-    console.log(`💰 ${creditsToAdd} crédits ajoutés à ${email}. Nouveau total : ${user.credits}`);
-    res.json({ success: true, credits: user.credits });
-});
-
 // ================== ROUTES ADMIN ==================
 
 // STATUS
