@@ -115,16 +115,11 @@ router.post("/validate-token", (req, res) => {
 
 // 🌐 Page login admin
 router.get("/login", (req, res) => {
-    try {
-        const { token } = req.query;
-        if (!token) return res.redirect("/");
+    const { token } = req.query;
+    if (!token) return res.redirect("/");
 
-        // Sert le formulaire, validation côté front
-        res.sendFile(path.join(__dirname, "login.html"));
-    } catch (err) {
-        console.error("[LOGIN] Erreur :", err);
-        res.redirect("/");
-    }
+    // Redirige vers le site avec le token en query
+    res.redirect(`${process.env.SITE_URL}/login.html?token=${token}`);
 });
 
 // 🔑 Soumission formulaire login.html
