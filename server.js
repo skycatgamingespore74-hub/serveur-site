@@ -29,8 +29,9 @@ app.get('/', (req, res) => {
     res.json({ message: 'Serveur actif', url: PUBLIC_URL, time: new Date().toISOString() });
 });
 
-// Charger le module admin
-require('./admin'); // <-- c’est tout ce qu’il faut
+// server.js
+const adminRoutes = require('./admin');
+app.use('/admin', adminRoutes); // <-- obligatoire pour que Express connaisse les routes
 
 // Lancement
 app.listen(PORT, () => {
