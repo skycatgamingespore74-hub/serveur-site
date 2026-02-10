@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
+const path = require("path");
 
 // =================== ADMINS ===================
 const admins = {};
@@ -68,16 +69,16 @@ router.post("/statusadmin", verifyAdmin, (req, res) => {
     }
 });
 
-// token
+// =================== TOKENS ===================
 
 // Stockage temporaire des tokens (en mémoire)
 const tokens = {}; // { token: { discordId, expiresAt, used } }
 
-// Route pour générer un lien temporaire
+// Générer un lien temporaire
 router.post("/generate-link", verifyAdmin, (req, res) => {
     try {
         const token = crypto.randomBytes(16).toString("hex"); // 32 caractères aléatoires
-        const loginUrl = `${process.env.PUBLIC_URL}/login?token=${token}`;
+        const loginUrl = `${process.env.PUBLIC_URL}/admin/login?token=${token}`;
 
         // Stocke le token avec expiration dans 1 heure et flag utilisé=false
         tokens[token] = {
@@ -97,25 +98,31 @@ router.post("/generate-link", verifyAdmin, (req, res) => {
     }
 });
 
+// Login via token
+router.get("/login", (req, res) => {
+    try {
+        const { token } = req.query;
+        if (!token || !tokens[token]) return res.redirect("/");
+
         const tokenData = tokens[token];
 
         // Vérifie expiration et usage
         if (tokenData.used || Date.now() > tokenData.expiresAt) {
             delete tokens[token]; // supprime token expiré ou utilisé
-            return res.redirect("/"); // redirige vers l'accueil
+            return res.redirect("/");
         }
 
         // Marque comme utilisé
         tokenData.used = true;
 
-        // Ici, tu peux afficher la page login
-        res.sendFile(path.join(__dirname, "login.html")); // mettre ton login.html au bon chemin
-
+        // Sert le fichier login.html
+        res.sendFile(path.join(__dirname, "login.html")); // attention au chemin réel
     } catch (err) {
         console.error("[LOGIN] Erreur :", err);
         res.redirect("/");
     }
 });
+
 // Route réservée super-admins
 router.post("/secret-info", verifyAdmin, (req, res) => {
     try {
