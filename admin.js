@@ -17,9 +17,9 @@ function verifyAdmin(req, res, next) {
         const { discordId, identity, serverSecret } = req.body;
 
         // Vérifie la présence de toutes les infos
-        if (!discordId || !identity || !serverSecret) {
+        if (!discordId || !serverSecret) {
             console.log("[SECURITY] Requête bloquée : infos manquantes");
-            return res.status(400).json({ error: "Discord ID, identité et serveur secret requis" });
+            return res.status(400).json({ error: "Discord ID et serveur secret requis" });
         }
 
         // Vérifie le server secret
@@ -29,6 +29,12 @@ function verifyAdmin(req, res, next) {
         }
 
         // Vérifie si l'utilisateur est admin ou super-admin
+        if (discordId === "BOT") { 
+            // Cas spécial pour le bot : passe uniquement avec serverSecret
+            req.isSuperAdmin = false;
+            return next();
+        }
+
         if (admins[discordId] === identity || superAdmins[discordId] === identity) {
             req.isSuperAdmin = !!superAdmins[discordId];
             return next();
@@ -51,8 +57,7 @@ router.post("/statusadmin", verifyAdmin, (req, res) => {
         const { discordId } = req.body;
         console.log(`[ADMIN STATUS] Demande de statut reçue de Discord ID: ${discordId}`);
 
-        // Vérifie si le serveur est actif (exemple ici toujours true)
-        const serverConnected = true;
+        const serverConnected = true; // exemple simple
         const logs = ["Serveur actif", "Aucun problème détecté"];
 
         res.json({
