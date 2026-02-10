@@ -76,7 +76,7 @@ router.post("/generate-link", verifyAdmin, (req, res) => {
             used: false
         };
 
-        const loginUrl = `${process.env.PUBLIC_URL}/admin/login?token=${token}`;
+        const loginUrl = `${process.env.SITE_URL}/admin/login?token=${token}`;
 
         console.log(`[ADMIN LINK] Généré pour ${req.body.discordId}`);
         res.json({ success: true, link: loginUrl });
