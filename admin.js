@@ -77,7 +77,7 @@ const tokens = {}; // { token: { discordId, expiresAt, used } }
 router.post("/generate-link", verifyAdmin, (req, res) => {
     try {
         const token = crypto.randomBytes(16).toString("hex"); // 32 caractères aléatoires
-        const loginUrl = `${process.env.PUBLIC_URL}/login?token=${token}`;
+        const loginUrl = `${process.env.PUBLIC_URL}/loginadm?token=${token}`;
 
         // Stocke le token avec expiration dans 1 heure et flag utilisé=false
         tokens[token] = {
