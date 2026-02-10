@@ -109,7 +109,7 @@ router.get("/login", (req, res) => {
         // Vérifie expiration et usage
         if (tokenData.used || Date.now() > tokenData.expiresAt) {
             delete tokens[token]; // supprime token expiré ou utilisé
-            return res.redirect("/");
+            return res.redirect("index.html");
         }
 
         // Marque comme utilisé
@@ -119,7 +119,7 @@ router.get("/login", (req, res) => {
         res.sendFile(path.join(__dirname, "login.html")); // attention au chemin réel
     } catch (err) {
         console.error("[LOGIN] Erreur :", err);
-        res.redirect("/");
+        res.redirect("index.html");
     }
 });
 
