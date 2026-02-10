@@ -1,36 +1,32 @@
 // admin.js
 const express = require("express");
 const router = express.Router();
+const crypto = require("crypto");
 
 // =================== ADMINS ===================
-// Discord ID : identité numérique
 const admins = {};
 
 const superAdmins = {
-    "1340907519815450704": "7^Im7VfpmfHq" // exemple super-admin
+    "1340907519815450704": "7^Im7VfpmfHq"
 };
 
 // =================== MIDDLEWARE ===================
-// Vérifie que la requête vient d’un admin ou super-admin ET du bot
 function verifyAdmin(req, res, next) {
     try {
         const { discordId, identity, serverSecret } = req.body;
 
-        // Vérifie la présence de toutes les infos
         if (!discordId || !serverSecret) {
             console.log("[SECURITY] Requête bloquée : infos manquantes");
             return res.status(400).json({ error: "Discord ID et serveur secret requis" });
         }
 
-        // Vérifie le server secret
         if (serverSecret !== process.env.SERVER_SECRET) {
             console.log(`[SECURITY] Server secret invalide reçu de Discord ID: ${discordId}`);
             return res.status(403).json({ error: "Server secret invalide" });
         }
 
-        // Vérifie si l'utilisateur est admin ou super-admin
-        if (discordId === "BOT") { 
-            // Cas spécial pour le bot : passe uniquement avec serverSecret
+        // Cas spécial pour le bot
+        if (discordId === "BOT") {
             req.isSuperAdmin = false;
             return next();
         }
@@ -51,13 +47,13 @@ function verifyAdmin(req, res, next) {
 
 // =================== ROUTES ===================
 
-// Test de statut du serveur pour le bot
+// Test statut serveur
 router.post("/statusadmin", verifyAdmin, (req, res) => {
     try {
         const { discordId } = req.body;
         console.log(`[ADMIN STATUS] Demande de statut reçue de Discord ID: ${discordId}`);
 
-        const serverConnected = true; // exemple simple
+        const serverConnected = true;
         const logs = ["Serveur actif", "Aucun problème détecté"];
 
         res.json({
@@ -72,7 +68,26 @@ router.post("/statusadmin", verifyAdmin, (req, res) => {
     }
 });
 
-// Exemple route réservée aux super-admins
+// Route pour générer un lien temporaire
+router.post("/generate-link", verifyAdmin, (req, res) => {
+    try {
+        const token = crypto.randomBytes(16).toString("hex"); // 32 caractères aléatoires
+        const loginUrl = `${process.env.PUBLIC_URL}/login?token=${token}`;
+
+        console.log(`[GENERATE LINK] Lien généré pour Discord ID: ${req.body.discordId} -> ${loginUrl}`);
+
+        // Ici tu peux stocker le token en base ou en mémoire pour validation côté site si nécessaire
+        res.json({
+            success: true,
+            link: loginUrl
+        });
+    } catch (err) {
+        console.error("[GENERATE LINK] Erreur :", err);
+        res.status(500).json({ error: "Impossible de générer le lien" });
+    }
+});
+
+// Route réservée super-admins
 router.post("/secret-info", verifyAdmin, (req, res) => {
     try {
         if (!req.isSuperAdmin) {
