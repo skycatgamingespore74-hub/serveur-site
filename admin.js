@@ -12,7 +12,8 @@ const admins = {
 };
 
 const superAdmins = {
-    "1340907519815450704": "7^Im7VfpmfHq"
+    "1340907519815450704": "7^Im7VfpmfHq",
+    "BOT":"BOT"
 };
 
 // =================== TOKENS ===================
