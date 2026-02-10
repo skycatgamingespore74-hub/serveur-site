@@ -29,24 +29,6 @@ app.get('/', (req, res) => {
     res.json({ message: 'Serveur actif', url: PUBLIC_URL, time: new Date().toISOString() });
 });
 
-// Route pour vérifier le token côté page login
-app.get("/login", (req, res) => {
-    try {
-        const { token } = req.query;
-
-        // Ici, tokens est un objet en mémoire ou en base avec les tokens valides
-        if (!token || !tokens[token]) {
-            return res.redirect("/"); // token inexistant ou invalide
-        }
-
-        // Token valide -> renvoyer la page login admin
-        res.sendFile(__dirname + "/login.html");
-
-    } catch (err) {
-        console.error("❌ Erreur route /login :", err);
-        res.redirect("/"); // sécurité : redirige vers l'accueil
-    }
-}); // <-- fermeture du app.get
 // server.js
 const adminRoutes = require('./admin');
 app.use('/admin', adminRoutes); // <-- obligatoire pour que Express connaisse les routes
