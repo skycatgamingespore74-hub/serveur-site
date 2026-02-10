@@ -29,6 +29,10 @@ app.get('/', (req, res) => {
     res.json({ message: 'Serveur actif', url: PUBLIC_URL, time: new Date().toISOString() });
 });
 
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
 // server.js
 const adminRoutes = require('./admin');
 app.use('/admin', adminRoutes); // <-- obligatoire pour que Express connaisse les routes
