@@ -68,15 +68,25 @@ router.post("/statusadmin", verifyAdmin, (req, res) => {
     }
 });
 
+// token
+
+// Stockage temporaire des tokens (en mémoire)
+const tokens = {}; // { token: { discordId, expiresAt, used } }
+
 // Route pour générer un lien temporaire
 router.post("/generate-link", verifyAdmin, (req, res) => {
     try {
         const token = crypto.randomBytes(16).toString("hex"); // 32 caractères aléatoires
         const loginUrl = `${process.env.PUBLIC_URL}/login?token=${token}`;
 
-        console.log(`[GENERATE LINK] Lien généré pour Discord ID: ${req.body.discordId} -> ${loginUrl}`);
+        // Stocke le token avec expiration dans 1 heure et flag utilisé=false
+        tokens[token] = {
+            discordId: req.body.discordId,
+            expiresAt: Date.now() + 60 * 60 * 1000, // 1 heure
+            used: false
+        };
 
-        // Ici tu peux stocker le token en base ou en mémoire pour validation côté site si nécessaire
+        console.log(`[GENERATE LINK] Lien généré pour Discord ID: ${req.body.discordId} -> ${loginUrl}`);
         res.json({
             success: true,
             link: loginUrl
@@ -87,6 +97,33 @@ router.post("/generate-link", verifyAdmin, (req, res) => {
     }
 });
 
+// Route pour vérifier le token côté page login
+router.get("/login", (req, res) => {
+    try {
+        const { token } = req.query;
+        if (!token || !tokens[token]) {
+            return res.redirect("/"); // token inexistant
+        }
+
+        const tokenData = tokens[token];
+
+        // Vérifie expiration et usage
+        if (tokenData.used || Date.now() > tokenData.expiresAt) {
+            delete tokens[token]; // supprime token expiré ou utilisé
+            return res.redirect("/"); // redirige vers l'accueil
+        }
+
+        // Marque comme utilisé
+        tokenData.used = true;
+
+        // Ici, tu peux afficher la page login
+        res.sendFile(path.join(__dirname, "login.html")); // mettre ton login.html au bon chemin
+
+    } catch (err) {
+        console.error("[LOGIN] Erreur :", err);
+        res.redirect("/");
+    }
+});
 // Route réservée super-admins
 router.post("/secret-info", verifyAdmin, (req, res) => {
     try {
