@@ -29,6 +29,13 @@ app.get('/', (req, res) => {
     res.json({ message: 'Serveur actif', url: PUBLIC_URL, time: new Date().toISOString() });
 });
 
+// Route pour vérifier le token côté page login
+app.get("/login", (req, res) => {
+    try {
+        const { token } = req.query;
+        if (!token || !tokens[token]) {
+            return res.redirect("/"); // token inexistant
+        }
 // server.js
 const adminRoutes = require('./admin');
 app.use('/admin', adminRoutes); // <-- obligatoire pour que Express connaisse les routes
