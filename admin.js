@@ -117,7 +117,7 @@ router.get("/login", (req, res) => {
         tokenData.used = true;
 
         // Ici, tu peux afficher la page login
-        res.sendFile(path.join(__dirname, "login.html")); // mettre ton login.html au bon chemin
+        res.sendFile(path.join(__dirname, "loginadm.html")); // mettre ton login.html au bon chemin
 
     } catch (err) {
         console.error("[LOGIN] Erreur :", err);
