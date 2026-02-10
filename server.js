@@ -29,6 +29,9 @@ app.get('/', (req, res) => {
     res.json({ message: 'Serveur actif', url: PUBLIC_URL, time: new Date().toISOString() });
 });
 
+// Charger le module admin
+require('./admin'); // <-- c’est tout ce qu’il faut
+
 // Lancement
 app.listen(PORT, () => {
     console.log('==============================');
