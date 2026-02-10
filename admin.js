@@ -77,7 +77,7 @@ const tokens = {}; // { token: { discordId, expiresAt, used } }
 router.post("/generate-link", verifyAdmin, (req, res) => {
     try {
         const token = crypto.randomBytes(16).toString("hex"); // 32 caractères aléatoires
-        const loginUrl = `${process.env.PUBLIC_URL}/loginadm?token=${token}`;
+        const loginUrl = `${process.env.PUBLIC_URL}/adminlogin?token=${token}`;
 
         // Stocke le token avec expiration dans 1 heure et flag utilisé=false
         tokens[token] = {
@@ -117,7 +117,7 @@ router.get("/login", (req, res) => {
         tokenData.used = true;
 
         // Ici, tu peux afficher la page login
-        res.sendFile(path.join(__dirname, "loginadm.html")); // mettre ton login.html au bon chemin
+        res.sendFile(path.join(__dirname, "adminlogin.html")); // mettre ton login.html au bon chemin
 
     } catch (err) {
         console.error("[LOGIN] Erreur :", err);
