@@ -4,13 +4,10 @@ const router = express.Router();
 
 // =================== ADMINS ===================
 // Discord ID : identité numérique
-const admins = {
-    "123456789012345678": "ABC123DEF456", // exemple admin
-    "987654321098765432": "XYZ789GHI012"
-};
+const admins = {};
 
 const superAdmins = {
-    "111111111111111111": "SUPERADMIN123" // exemple super-admin
+    "1340907519815450704": "7^Im7VfpmfHq" // exemple super-admin
 };
 
 // =================== MIDDLEWARE ===================
