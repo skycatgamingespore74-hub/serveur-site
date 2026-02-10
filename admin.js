@@ -13,11 +13,11 @@ const admins = {
 
 const superAdmins = {
     "1340907519815450704": "7^Im7VfpmfHq",
-    "BOT":"BOT"
+    "BOT": "BOT"
 };
 
 // =================== TOKENS ===================
-// { token: { discordId, expiresAt } }
+// { token: { discordId, expiresAt, used } }
 const tokens = {};
 
 // =================== MIDDLEWARE ===================
@@ -73,7 +73,8 @@ router.post("/generate-link", verifyAdmin, (req, res) => {
 
         tokens[token] = {
             discordId: req.body.discordId,
-            expiresAt: Date.now() + 15 * 60 * 1000 // 15 minutes
+            expiresAt: Date.now() + 15 * 60 * 1000, // 15 minutes
+            used: false
         };
 
         const loginUrl = `${process.env.PUBLIC_URL}/admin/login?token=${token}`;
@@ -93,17 +94,26 @@ router.post("/validate-token", (req, res) => {
         const { token } = req.body;
         const tokenData = tokens[token];
 
-        if (!tokenData) return res.json({ success: false });
+        if (!tokenData) return res.json({ success: false, error: "Token invalide" });
 
+        // Token expiré
         if (Date.now() > tokenData.expiresAt) {
             delete tokens[token];
-            return res.json({ success: false });
+            return res.json({ success: false, error: "Token expiré" });
         }
+
+        // Token déjà utilisé
+        if (tokenData.used) {
+            return res.json({ success: false, error: "Token déjà utilisé" });
+        }
+
+        // ⚠️ Consommer le token
+        tokenData.used = true;
 
         res.json({ success: true });
     } catch (err) {
         console.error("[VALIDATE TOKEN] Erreur :", err);
-        res.json({ success: false });
+        res.json({ success: false, error: "Erreur serveur" });
     }
 });
 
@@ -111,14 +121,9 @@ router.post("/validate-token", (req, res) => {
 router.get("/login", (req, res) => {
     try {
         const { token } = req.query;
-        const tokenData = tokens[token];
+        if (!token) return res.redirect("/");
 
-        if (!tokenData || Date.now() > tokenData.expiresAt) {
-            if (token) delete tokens[token];
-            return res.redirect("/");
-        }
-
-        // ⚠️ Le token n’est PAS consommé ici, juste affichage
+        // Sert simplement le fichier, la validation est côté client
         res.sendFile(path.join(__dirname, "login.html"));
     } catch (err) {
         console.error("[LOGIN] Erreur :", err);
@@ -131,7 +136,6 @@ router.post("/login-submit", (req, res) => {
     try {
         const { username, password } = req.body;
 
-        // Vérification simple ici (à remplacer par base de données / hash)
         const validUser = Object.values(admins).includes(username) || Object.values(superAdmins).includes(username);
         const validPassword = password === process.env.ADMIN_PASSWORD;
 
@@ -139,7 +143,6 @@ router.post("/login-submit", (req, res) => {
             return res.json({ success: false, error: "Identifiants incorrects" });
         }
 
-        // Connexion réussie
         res.json({ success: true });
     } catch (err) {
         console.error("[LOGIN SUBMIT] Erreur :", err);
@@ -149,9 +152,7 @@ router.post("/login-submit", (req, res) => {
 
 // 🔐 Route super-admin uniquement
 router.post("/secret-info", verifyAdmin, (req, res) => {
-    if (!req.isSuperAdmin) {
-        return res.status(403).json({ error: "Accès super-admin requis" });
-    }
+    if (!req.isSuperAdmin) return res.status(403).json({ error: "Accès super-admin requis" });
 
     res.json({
         success: true,
