@@ -97,14 +97,6 @@ router.post("/generate-link", verifyAdmin, (req, res) => {
     }
 });
 
-// Route pour vérifier le token côté page login
-router.get("/login", (req, res) => {
-    try {
-        const { token } = req.query;
-        if (!token || !tokens[token]) {
-            return res.redirect("/"); // token inexistant
-        }
-
         const tokenData = tokens[token];
 
         // Vérifie expiration et usage
