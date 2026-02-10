@@ -46,7 +46,7 @@ function verifyAdmin(req, res, next) {
 // =================== ROUTES ===================
 
 // Test de statut du serveur pour le bot
-router.post("/status", verifyAdmin, (req, res) => {
+router.post("/statusadmin", verifyAdmin, (req, res) => {
     try {
         const { discordId } = req.body;
         console.log(`[ADMIN STATUS] Demande de statut reçue de Discord ID: ${discordId}`);
