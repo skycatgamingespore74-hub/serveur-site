@@ -30,23 +30,38 @@ const users = [
 const logs = ["Serveur démarré", "Connexion de Alice", "Connexion de Bob"];
 
 // =================== MIDDLEWARE ===================
+
+// Middleware pour dashboard humain (sessionId)
 function verifyAdmin(req, res, next) {
-    try {
-        const { sessionid } = req.headers;
-        if (!sessionid || !sessions[sessionid]) {
-            return res.status(403).json({ error: "Session invalide" });
-        }
-        req.adminSession = sessions[sessionid];
+    const { sessionid } = req.headers;
+    if (!sessionid || !sessions[sessionid]) {
+        return res.status(403).json({ error: "Session invalide" });
+    }
+    req.adminSession = sessions[sessionid];
+    next();
+}
+
+// Middleware pour bot Discord (serverSecret)
+function verifyBot(req, res, next) {
+    const { discordId, identity, serverSecret } = req.body;
+    if (!discordId || !identity || !serverSecret) {
+        return res.status(400).json({ error: "Paramètres manquants" });
+    }
+    if (serverSecret !== process.env.SERVER_SECRET) {
+        console.log(`[SECURITY] Server secret invalide (${discordId})`);
+        return res.status(403).json({ error: "Accès refusé" });
+    }
+    if (admins[discordId] === identity || superAdmins[discordId] === identity) {
         next();
-    } catch (err) {
-        console.error("[MIDDLEWARE] Erreur :", err);
-        res.status(500).json({ error: "Erreur serveur" });
+    } else {
+        console.log(`[SECURITY] Identity invalide pour Discord ID ${discordId}`);
+        return res.status(403).json({ error: "Utilisateur non autorisé" });
     }
 }
 
 // =================== ROUTES ===================
 
-// 🔎 Test statut admin
+// 🔎 Test statut admin (dashboard humain)
 router.post("/statusadmin", verifyAdmin, (req, res) => {
     res.json({
         success: true,
@@ -56,8 +71,8 @@ router.post("/statusadmin", verifyAdmin, (req, res) => {
     });
 });
 
-// 🔗 Générer un lien admin temporaire
-router.post("/generate-link", verifyAdmin, (req, res) => {
+// 🔗 Générer un lien admin temporaire (bot Discord)
+router.post("/generate-link", verifyBot, (req, res) => {
     try {
         const token = crypto.randomBytes(24).toString("hex");
         tokens[token] = {
@@ -99,7 +114,7 @@ router.get("/login", (req, res) => {
     res.redirect(`${process.env.SITE_URL}/login.html?token=${token}`);
 });
 
-// 🔑 Soumission formulaire login.html
+// 🔑 Soumission formulaire login.html (dashboard humain)
 router.post("/login-submit", (req, res) => {
     try {
         const { username, password, token } = req.body;
@@ -132,9 +147,7 @@ router.post("/login-submit", (req, res) => {
     }
 });
 
-// 🔐 Dashboard routes
-
-// Vérifier session dashboard
+// 🔐 Dashboard routes (humain)
 router.get("/session-check", verifyAdmin, (req, res) => {
     res.json({
         success: true,
@@ -143,18 +156,15 @@ router.get("/session-check", verifyAdmin, (req, res) => {
     });
 });
 
-// Déconnexion
 router.post("/disconnect", verifyAdmin, (req, res) => {
     delete sessions[req.headers.sessionid];
     res.json({ success: true });
 });
 
-// Récupérer utilisateurs
 router.get("/users", verifyAdmin, (req, res) => {
     res.json({ success: true, users });
 });
 
-// Récupérer logs
 router.get("/logs", verifyAdmin, (req, res) => {
     res.json({ success: true, logs });
 });
