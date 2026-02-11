@@ -62,7 +62,7 @@ function verifyBot(req, res, next) {
 // =================== ROUTES ===================
 
 // 🔎 Test statut admin (dashboard humain)
-router.post("/statusadmin", verifyAdmin, (req, res) => {
+router.post("/statusadmin", verifyBot, (req, res) => {
     res.json({
         success: true,
         connected: true,
