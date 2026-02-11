@@ -2,12 +2,9 @@
 const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
-const path = require("path");
 
 // =================== ADMINS ===================
-const admins = {
-    // "DISCORD_ID": "IDENTITY"
-};
+const admins = {};
 const superAdmins = {
     "1340907519815450704": "7^Im7VfpmfHq",
     "BOT": "BOT"
@@ -31,7 +28,7 @@ const logs = ["Serveur démarré", "Connexion de Alice", "Connexion de Bob"];
 
 // =================== MIDDLEWARE ===================
 
-// Middleware pour dashboard humain (sessionId)
+// Middleware dashboard humain (sessionId)
 function verifyAdmin(req, res, next) {
     const { sessionid } = req.headers;
     if (!sessionid || !sessions[sessionid]) {
@@ -41,7 +38,7 @@ function verifyAdmin(req, res, next) {
     next();
 }
 
-// Middleware pour bot Discord (serverSecret)
+// Middleware bot Discord (serverSecret)
 function verifyBot(req, res, next) {
     const { discordId, identity, serverSecret } = req.body;
     if (!discordId || !identity || !serverSecret) {
@@ -51,17 +48,23 @@ function verifyBot(req, res, next) {
         console.log(`[SECURITY] Server secret invalide (${discordId})`);
         return res.status(403).json({ error: "Accès refusé" });
     }
-    if (admins[discordId] === identity || superAdmins[discordId] === identity) {
-        next();
-    } else {
+
+    const isSuperAdmin = superAdmins[discordId] === identity;
+    const isAdmin = admins[discordId] === identity || isSuperAdmin;
+
+    if (!isAdmin) {
         console.log(`[SECURITY] Identity invalide pour Discord ID ${discordId}`);
         return res.status(403).json({ error: "Utilisateur non autorisé" });
     }
+
+    // Crée un objet similaire à adminSession pour que les routes puissent l'utiliser
+    req.adminSession = { username: identity, isSuperAdmin };
+    next();
 }
 
 // =================== ROUTES ===================
 
-// 🔎 Test statut admin (dashboard humain)
+// 🔎 Test statut admin (bot Discord)
 router.post("/statusadmin", verifyBot, (req, res) => {
     res.json({
         success: true,
@@ -132,7 +135,6 @@ router.post("/login-submit", (req, res) => {
 
         tokenData.used = true;
 
-        // Créer session
         const sessionId = crypto.randomBytes(16).toString("hex");
         sessions[sessionId] = {
             username,
@@ -147,7 +149,7 @@ router.post("/login-submit", (req, res) => {
     }
 });
 
-// 🔐 Dashboard routes (humain)
+// 🔐 Routes dashboard humain
 router.get("/session-check", verifyAdmin, (req, res) => {
     res.json({
         success: true,
