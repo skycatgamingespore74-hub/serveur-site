@@ -173,6 +173,34 @@ router.post("/disconnect", verifyAdmin, (req, res) => {
 
 // =================== USERS ===================
 
+
+// =================== TRACK VISITEUR ===================
+
+router.post("/track-visit", (req, res) => {
+  const ip =
+    req.headers["x-forwarded-for"]?.split(",")[0] ||
+    req.socket.remoteAddress;
+
+  const { email } = req.body;
+
+  // Vérifie si IP existe déjà
+  const existingUser = users.find(u => u.ip === ip);
+
+  if (existingUser) {
+    // Met à jour email si connecté
+    if (email) existingUser.email = email;
+    existingUser.updatedAt = new Date();
+  } else {
+    addUser({
+      ip,
+      email: email || null
+    });
+  }
+
+  res.json({ success: true });
+});
+
+
 // 🔥 accessible uniquement admin
 router.get("/users", verifyAdmin, (req, res) => {
   // On regroupe les utilisateurs par IP
