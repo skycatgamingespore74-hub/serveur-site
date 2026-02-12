@@ -1,3 +1,4 @@
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -21,6 +22,8 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // =================== ROUTES ===================
+
+app.set('trust proxy', true);
 
 // Routes principales
 const authRoutes = require('./routes');
