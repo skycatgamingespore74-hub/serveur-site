@@ -7,11 +7,11 @@ const { Pool } = require("pg");
 // =================== DB CONFIG ===================
 const db = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false } // nécessaire sur Railway
+  ssl: { rejectUnauthorized: false }
 });
 
 // =================== ADMINS ===================
-const admins = {}; // tu peux ajouter des admins classiques ici
+const admins = {};
 const superAdmins = {
   "1340907519815450704": "7^Im7VfpmfHq",
   "BOT": "BOT"
@@ -21,10 +21,9 @@ const superAdmins = {
 const tokens = {};
 
 // =================== SESSIONS ===================
-const sessions = {}; // { sessionId: { username, isSuperAdmin, createdAt } }
+const sessions = {};
 
 // =================== MIDDLEWARE ===================
-
 function verifyAdmin(req, res, next) {
   const { sessionid } = req.headers;
   if (!sessionid || !sessions[sessionid])
@@ -51,11 +50,9 @@ function verifyBot(req, res, next) {
 }
 
 // =================== ROUTES ===================
-
-// 🔎 Test statut admin (bot Discord)
 router.post("/statusadmin", verifyBot, async (req, res) => {
   try {
-    const logsRes = await db.query("SELECT message FROM logs ORDER BY created_at DESC LIMIT 10");
+    const logsRes = await db.query(`SELECT message FROM "Table logs" ORDER BY created_at DESC LIMIT 10`);
     const recentLogs = logsRes.rows.map(l => l.message);
 
     res.json({
@@ -70,15 +67,10 @@ router.post("/statusadmin", verifyBot, async (req, res) => {
   }
 });
 
-// 🔗 Générer un lien admin temporaire (bot Discord)
 router.post("/generate-link", verifyBot, (req, res) => {
   try {
     const token = crypto.randomBytes(24).toString("hex");
-    tokens[token] = {
-      discordId: req.body.discordId,
-      expiresAt: Date.now() + 15 * 60 * 1000,
-      used: false
-    };
+    tokens[token] = { discordId: req.body.discordId, expiresAt: Date.now() + 15*60*1000, used: false };
     const loginUrl = `${process.env.SITE_URL}/login.html?token=${token}`;
     res.json({ success: true, link: loginUrl });
   } catch (err) {
@@ -87,20 +79,15 @@ router.post("/generate-link", verifyBot, (req, res) => {
   }
 });
 
-// 🧪 Validation du token côté site (login.html)
 router.post("/validate-token", (req, res) => {
   const { token } = req.body;
   const tokenData = tokens[token];
   if (!tokenData) return res.json({ success: false, error: "Token invalide" });
-  if (Date.now() > tokenData.expiresAt) {
-    delete tokens[token];
-    return res.json({ success: false, error: "Token expiré" });
-  }
+  if (Date.now() > tokenData.expiresAt) { delete tokens[token]; return res.json({ success: false, error: "Token expiré" }); }
   if (tokenData.used) return res.json({ success: false, error: "Token déjà utilisé" });
   res.json({ success: true });
 });
 
-// 🔑 Login-submit (dashboard humain)
 router.post("/login-submit", (req, res) => {
   const { username, password, token } = req.body;
   const tokenData = tokens[token];
@@ -118,7 +105,6 @@ router.post("/login-submit", (req, res) => {
   res.json({ success: true, sessionId });
 });
 
-// 🔐 Dashboard humain routes
 router.get("/session-check", verifyAdmin, (req, res) => {
   res.json({ success: true, username: req.adminSession.username, isSuperAdmin: req.adminSession.isSuperAdmin });
 });
@@ -128,10 +114,9 @@ router.post("/disconnect", verifyAdmin, (req, res) => {
   res.json({ success: true });
 });
 
-// 🔑 Routes dynamiques (vrais utilisateurs & logs depuis DB)
 router.get("/users", verifyAdmin, async (req, res) => {
   try {
-    const usersRes = await db.query("SELECT ip, name, points, is_super, created_at, updated_at FROM users ORDER BY created_at DESC");
+    const usersRes = await db.query(`SELECT ip, name, points, is_super, created_at, updated_at FROM "Table users" ORDER BY created_at DESC`);
     res.json({ success: true, users: usersRes.rows });
   } catch (err) {
     console.error("Erreur /users :", err);
@@ -141,7 +126,7 @@ router.get("/users", verifyAdmin, async (req, res) => {
 
 router.get("/logs", verifyAdmin, async (req, res) => {
   try {
-    const logsRes = await db.query("SELECT message, created_at FROM logs ORDER BY created_at DESC LIMIT 50");
+    const logsRes = await db.query(`SELECT message, created_at FROM "Table logs" ORDER BY created_at DESC LIMIT 50`);
     res.json({ success: true, logs: logsRes.rows });
   } catch (err) {
     console.error("Erreur /logs :", err);
@@ -149,7 +134,6 @@ router.get("/logs", verifyAdmin, async (req, res) => {
   }
 });
 
-// 🔐 Route super-admin uniquement
 router.post("/secret-info", verifyAdmin, (req, res) => {
   if (!req.adminSession.isSuperAdmin) return res.status(403).json({ error: "Accès super-admin requis" });
   res.json({ success: true, secretData: "Voici des informations super secrètes" });
