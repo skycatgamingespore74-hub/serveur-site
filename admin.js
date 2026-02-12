@@ -175,8 +175,21 @@ router.post("/disconnect", verifyAdmin, (req, res) => {
 
 // 🔥 accessible uniquement admin
 router.get("/users", verifyAdmin, (req, res) => {
-  const usersForDashboard = users.map(u => ({
-    email: u.email || u.name || u.ip, // priorité email
+  // On regroupe les utilisateurs par IP
+  const usersByIP = {};
+  users.forEach(u => {
+    if (!usersByIP[u.ip]) {
+      usersByIP[u.ip] = u;
+    } else {
+      // Si plusieurs entrées pour la même IP, on garde l'email si disponible
+      if (u.email) usersByIP[u.ip].email = u.email;
+    }
+  });
+
+  // On prépare les données pour le dashboard
+  const usersForDashboard = Object.values(usersByIP).map(u => ({
+    ip: u.ip,
+    email: u.email || null,
     points: u.points || 0,
     credits: u.credits || 0
   }));
