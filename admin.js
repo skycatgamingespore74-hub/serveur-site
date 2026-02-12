@@ -21,6 +21,7 @@ const SESSION_DURATION = 60 * 60 * 1000; // 1 heure
 const users = [];
 const logs = [];
 
+// =================== LOGS ===================
 function addLog(message) {
   if (logs.length >= 10) logs.shift();
   logs.push({
@@ -29,17 +30,19 @@ function addLog(message) {
   });
 }
 
-// 👉 EXPORTABLE pour pouvoir l'utiliser ailleurs
+// =================== USERS ===================
 function addUser(user) {
   users.push({
     ip: user.ip,
+    email: user.email || null,   // <-- priorité email
     name: user.name || null,
     points: user.points || 0,
+    credits: user.credits || 0,
     createdAt: new Date(),
     updatedAt: new Date()
   });
 
-  addLog(`Nouvel utilisateur : ${user.name || user.ip}`);
+  addLog(`Nouvel utilisateur : ${user.email || user.name || user.ip}`);
 }
 
 // =================== MIDDLEWARE ===================
@@ -49,7 +52,6 @@ function verifyAdmin(req, res, next) {
   if (!sessionid || !sessions[sessionid])
     return res.status(403).json({ error: "Session invalide" });
 
-  // 🔥 expiration auto
   if (Date.now() - sessions[sessionid].createdAt > SESSION_DURATION) {
     delete sessions[sessionid];
     return res.status(403).json({ error: "Session expirée" });
@@ -110,16 +112,12 @@ router.post("/validate-token", (req, res) => {
   const { token } = req.body;
   const tokenData = tokens[token];
 
-  if (!tokenData)
-    return res.json({ success: false, error: "Token invalide" });
-
+  if (!tokenData) return res.json({ success: false, error: "Token invalide" });
   if (Date.now() > tokenData.expiresAt) {
     delete tokens[token];
     return res.json({ success: false, error: "Token expiré" });
   }
-
-  if (tokenData.used)
-    return res.json({ success: false, error: "Token déjà utilisé" });
+  if (tokenData.used) return res.json({ success: false, error: "Token déjà utilisé" });
 
   res.json({ success: true });
 });
@@ -129,28 +127,22 @@ router.post("/login-submit", (req, res) => {
   const { username, password, token } = req.body;
   const tokenData = tokens[token];
 
-  if (!tokenData)
-    return res.json({ success: false, error: "Token invalide" });
-
+  if (!tokenData) return res.json({ success: false, error: "Token invalide" });
   if (Date.now() > tokenData.expiresAt) {
     delete tokens[token];
     return res.json({ success: false, error: "Token expiré" });
   }
-
-  if (tokenData.used)
-    return res.json({ success: false, error: "Token déjà utilisé" });
+  if (tokenData.used) return res.json({ success: false, error: "Token déjà utilisé" });
 
   const validUser =
     Object.values(admins).includes(username) ||
     Object.values(superAdmins).includes(username);
-
   const validPassword = password === process.env.ADMIN_PASSWORD;
 
   if (!validUser || !validPassword)
     return res.json({ success: false, error: "Identifiants incorrects" });
 
   tokenData.used = true;
-
   const sessionId = crypto.randomBytes(16).toString("hex");
 
   sessions[sessionId] = {
@@ -160,7 +152,6 @@ router.post("/login-submit", (req, res) => {
   };
 
   addLog(`Connexion admin : ${username}`);
-
   res.json({ success: true, sessionId });
 });
 
@@ -184,7 +175,13 @@ router.post("/disconnect", verifyAdmin, (req, res) => {
 
 // 🔥 accessible uniquement admin
 router.get("/users", verifyAdmin, (req, res) => {
-  res.json({ success: true, users });
+  const usersForDashboard = users.map(u => ({
+    email: u.email || u.name || u.ip,
+    points: u.points || 0,
+    credits: u.credits || 0
+  }));
+
+  res.json({ success: true, users: usersForDashboard });
 });
 
 // 🔥 accessible uniquement admin
@@ -203,9 +200,9 @@ router.post("/secret-info", verifyAdmin, (req, res) => {
   });
 });
 
-// 🔥 EXPORT addUser pour l'utiliser ailleurs
+// 🔥 EXPORT
 module.exports = {
-  router,
+  router,  // <-- pour app.use('/admin', adminRoutes.router)
   addUser,
   addLog
 };
