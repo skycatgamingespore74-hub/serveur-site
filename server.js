@@ -9,10 +9,11 @@ console.log('==============================');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// URL publique
+// URL publique (CORRIGÉ)
 const PUBLIC_URL = process.env.RAILWAY_PUBLIC_DOMAIN
     ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
     : `http://localhost:${PORT}`;
+
 console.log('🌍 URL serveur détectée :', PUBLIC_URL);
 
 // Middleware
@@ -20,16 +21,33 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // Routes
-const authRoutes = require('./routes'); // ton fichier auth/routes
+const authRoutes = require('./routes');
 const adminRoutes = require('./admin');
 
-if (authRoutes) app.use('/', authRoutes);      // routes utilisateurs
-if (adminRoutes) app.use('/admin', adminRoutes); // routes admin
+// DEBUG IMPORTANT
+console.log('Type authRoutes:', typeof authRoutes);
+console.log('Type adminRoutes:', typeof adminRoutes);
+
+if (typeof authRoutes === 'function') {
+    app.use('/', authRoutes);
+} else {
+    console.error('❌ authRoutes n\'est PAS une fonction');
+}
+
+if (typeof adminRoutes === 'function') {
+    app.use('/admin', adminRoutes);
+} else {
+    console.error('❌ adminRoutes n\'est PAS une fonction');
+}
 
 // Racine
 app.get('/', (req, res) => {
     console.log('🏠 Accès racine /');
-    res.json({ message: 'Serveur actif', url: PUBLIC_URL, time: new Date().toISOString() });
+    res.json({
+        message: 'Serveur actif',
+        url: PUBLIC_URL,
+        time: new Date().toISOString()
+    });
 });
 
 // Lancement
