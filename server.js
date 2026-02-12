@@ -9,25 +9,30 @@ console.log('==============================');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// URL publique (CORRIGÉ)
+// URL publique
 const PUBLIC_URL = process.env.RAILWAY_PUBLIC_DOMAIN
     ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
     : `http://localhost:${PORT}`;
 
 console.log('🌍 URL serveur détectée :', PUBLIC_URL);
 
-// Middleware
+// =================== MIDDLEWARE ===================
 app.use(cors());
 app.use(bodyParser.json());
 
-// Routes
-const authRoutes = require('./routes');
-const adminRoutes = require('./admin');
+// =================== ROUTES ===================
 
-// DEBUG IMPORTANT
+// Routes principales
+const authRoutes = require('./routes');
+
+// 🔥 On récupère le router depuis admin.js
+const { router: adminRoutes } = require('./admin');
+
+// Debug
 console.log('Type authRoutes:', typeof authRoutes);
 console.log('Type adminRoutes:', typeof adminRoutes);
 
+// Sécurisation
 if (typeof authRoutes === 'function') {
     app.use('/', authRoutes);
 } else {
@@ -40,7 +45,7 @@ if (typeof adminRoutes === 'function') {
     console.error('❌ adminRoutes n\'est PAS une fonction');
 }
 
-// Racine
+// =================== ROUTE RACINE ===================
 app.get('/', (req, res) => {
     console.log('🏠 Accès racine /');
     res.json({
@@ -50,7 +55,7 @@ app.get('/', (req, res) => {
     });
 });
 
-// Lancement
+// =================== LANCEMENT ===================
 app.listen(PORT, () => {
     console.log('==============================');
     console.log(`✅ SERVEUR LANCÉ SUR LE PORT ${PORT}`);
