@@ -19,19 +19,18 @@ console.log('🌍 URL serveur détectée :', PUBLIC_URL);
 app.use(cors());
 app.use(bodyParser.json());
 
-// Charger toutes les routes depuis routes.js
-const routes = require('./routes'); // <-- ton fichier unique de routes
-app.use('/', routes);
+// Routes
+const authRoutes = require('./routes'); // ton fichier auth/routes
+const adminRoutes = require('./admin');
+
+if (authRoutes) app.use('/', authRoutes);      // routes utilisateurs
+if (adminRoutes) app.use('/admin', adminRoutes); // routes admin
 
 // Racine
 app.get('/', (req, res) => {
     console.log('🏠 Accès racine /');
     res.json({ message: 'Serveur actif', url: PUBLIC_URL, time: new Date().toISOString() });
 });
-
-// server.js
-const adminRoutes = require('./admin');
-app.use('/admin', adminRoutes); // <-- obligatoire pour que Express connaisse les routes
 
 // Lancement
 app.listen(PORT, () => {
