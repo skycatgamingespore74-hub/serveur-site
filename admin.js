@@ -199,6 +199,7 @@ router.post("/track-visit", (req, res) => {
 
   res.json({ success: true });
 });
+console.log("IP reçue :", ip);
 
 
 // 🔥 accessible uniquement admin
