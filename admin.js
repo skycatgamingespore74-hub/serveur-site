@@ -176,7 +176,7 @@ router.post("/disconnect", verifyAdmin, (req, res) => {
 // 🔥 accessible uniquement admin
 router.get("/users", verifyAdmin, (req, res) => {
   const usersForDashboard = users.map(u => ({
-    email: u.email || u.name || u.ip,
+    email: u.email || u.name || u.ip, // priorité email
     points: u.points || 0,
     credits: u.credits || 0
   }));
